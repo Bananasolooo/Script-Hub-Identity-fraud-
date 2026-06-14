@@ -1,0 +1,116 @@
+-- =====================================================================
+-- [[ ESP PROXIMIDADE - FIX TOTAL PARA DELTA MOBILE ]]
+-- =====================================================================
+
+_G.ESP_Ativado = true -- Forçado como TRUE para você testar direto no executor
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Identifica o lugar mais estável do celular para renderizar a interface
+local localSeguro
+local ok, coregui = pcall(function() return game:GetService("CoreGui") end)
+if ok and coregui then
+    localSeguro = coregui
+else
+    localSeguro = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- FUNÇÃO DE LIMPEZA MANDATÓRIA
+local function limparESPTotal()
+    if _G.Delta_ESP_Folder then
+        _G.Delta_ESP_Folder:Destroy()
+        _G.Delta_ESP_Folder = nil
+    end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character then
+            local hl = p.Character:FindFirstChild("Delta_BordaHighlight")
+            if hl then hl:Destroy() end
+        end
+    end
+end
+
+-- Reseta antes de iniciar para evitar acúmulo de memória
+limparESPTotal()
+
+if _G.ESP_Ativado then
+    -- Cria uma pasta limpa para armazenar os elementos visuais dos nomes
+    local espFolder = Instance.new("Folder")
+    espFolder.Name = "Delta_ESP_System"
+    espFolder.Parent = localSeguro
+    _G.Delta_ESP_Folder = espFolder
+
+    local DISTANCIA_ATIVACAO = 120
+
+    -- Loop em segundo plano calibrado para Mobile (Thread Segura)
+    task.spawn(function()
+        while _G.ESP_Ativado and espFolder.Parent do
+            task.wait(0.3) -- Intervalo ideal: atualiza 3 vezes por segundo (zero lag)
+
+            local meuChar = LocalPlayer.Character
+            local meuRoot = meuChar and meuChar:FindFirstChild("HumanoidRootPart")
+
+            if meuRoot then
+                local minhaPos = meuRoot.Position
+
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Character then
+                        local seuRoot = p.Character:FindFirstChild("HumanoidRootPart")
+                        local head = p.Character:FindFirstChild("Head")
+
+                        if seuRoot and head then
+                            -- 1. CRIAÇÃO SEGURA DO NOME (Fora do personagem)
+                            local tagId = p.Name .. "_Tag"
+                            local tag = espFolder:FindFirstChild(tagId)
+
+                            if not tag then
+                                tag = Instance.new("BillboardGui")
+                                tag.Name = tagId
+                                tag.AlwaysOnTop = true
+                                tag.Size = UDim2.new(0, 100, 0, 30)
+                                tag.StudsOffset = Vector3.new(0, 3, 0)
+                                tag.Adornee = head -- Vincula o texto à cabeça do player remoto
+                                tag.Parent = espFolder
+
+                                local label = Instance.new("TextLabel", tag)
+                                label.BackgroundTransparency = 1
+                                label.Size = UDim2.new(1, 0, 1, 0)
+                                label.Text = p.Name
+                                label.TextColor3 = Color3.new(1, 1, 1)
+                                label.Font = Enum.Font.GothamBold
+                                label.TextSize = 13
+                                label.TextStrokeTransparency = 0
+                            end
+
+                            -- 2. CRIAÇÃO PROTEGIDA DA BORDA (Evita o fechamento do script no Delta)
+                            local hl = p.Character:FindFirstChild("Delta_BordaHighlight")
+                            if not hl then
+                                pcall(function()
+                                    hl = Instance.new("Highlight")
+                                    hl.Name = "Delta_BordaHighlight"
+                                    hl.OutlineColor = Color3.new(1, 1, 1)
+                                    hl.OutlineTransparency = 0
+                                    hl.FillTransparency = 1
+                                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                    hl.Adornee = p.Character
+                                    hl.Parent = p.Character
+                                end)
+                            end
+
+                            -- 3. CÁLCULO REATIVO DE PROXIMIDADE
+                            if hl then
+                                local distancia = (minhaPos - seuRoot.Position).Magnitude
+                                if distancia <= DISTANCIA_ATIVACAO then
+                                    hl.Enabled = true
+                                else
+                                    hl.Enabled = false
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        limparESPTotal()
+    end)
+end
