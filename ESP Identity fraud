@@ -1,13 +1,11 @@
 -- =====================================================================
--- [[ ESP PROXIMIDADE - FIX TOTAL PARA DELTA MOBILE ]]
+-- [[ ESP IDENTITY FRAUD - SEM LOOP (EXECUÇÃO ÚNICA) ]]
 -- =====================================================================
-
-_G.ESP_Ativado = true -- Forçado como TRUE para você testar direto no executor
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
 
--- Identifica o lugar mais estável do celular para renderizar a interface
 local localSeguro
 local ok, coregui = pcall(function() return game:GetService("CoreGui") end)
 if ok and coregui then
@@ -16,7 +14,16 @@ else
     localSeguro = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- FUNÇÃO DE LIMPEZA MANDATÓRIA
+local nomesMonstros = {
+    ["fraud"] = true,
+    ["stan"] = true,
+    ["ralph"] = true,
+    ["alice"] = true,
+    ["frag"] = true,
+    ["massacre"] = true,
+    ["identity"] = true
+}
+
 local function limparESPTotal()
     if _G.Delta_ESP_Folder then
         _G.Delta_ESP_Folder:Destroy()
@@ -28,89 +35,70 @@ local function limparESPTotal()
             if hl then hl:Destroy() end
         end
     end
+    for _, obj in ipairs(Workspace:GetChildren()) do
+        local hl = obj:FindFirstChild("Delta_BordaHighlight")
+        if hl then hl:Destroy() end
+    end
 end
 
--- Reseta antes de iniciar para evitar acúmulo de memória
+-- Limpa execuções antigas antes de aplicar a nova
 limparESPTotal()
 
-if _G.ESP_Ativado then
-    -- Cria uma pasta limpa para armazenar os elementos visuais dos nomes
-    local espFolder = Instance.new("Folder")
-    espFolder.Name = "Delta_ESP_System"
-    espFolder.Parent = localSeguro
-    _G.Delta_ESP_Folder = espFolder
+local espFolder = Instance.new("Folder")
+espFolder.Name = "Delta_ESP_System"
+espFolder.Parent = localSeguro
+_G.Delta_ESP_Folder = espFolder
 
-    local DISTANCIA_ATIVACAO = 120
+local function aplicarEfeitoESP(char, nomeExibido, cor)
+    local head = char:FindFirstChild("Head")
+    
+    if head then
+        -- 1. Criação do Texto
+        local tagId = char.Name .. "_Tag"
+        local tag = Instance.new("BillboardGui")
+        tag.Name = tagId
+        tag.AlwaysOnTop = true
+        tag.Size = UDim2.new(0, 100, 0, 30)
+        tag.StudsOffset = Vector3.new(0, 3, 0)
+        tag.Adornee = head
+        tag.Parent = espFolder
 
-    -- Loop em segundo plano calibrado para Mobile (Thread Segura)
-    task.spawn(function()
-        while _G.ESP_Ativado and espFolder.Parent do
-            task.wait(0.3) -- Intervalo ideal: atualiza 3 vezes por segundo (zero lag)
+        local label = Instance.new("TextLabel", tag)
+        label.BackgroundTransparency = 1
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.Text = nomeExibido
+        label.TextColor3 = cor
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 14
+        label.TextStrokeTransparency = 0
 
-            local meuChar = LocalPlayer.Character
-            local meuRoot = meuChar and meuChar:FindFirstChild("HumanoidRootPart")
+        -- 2. Criação da Borda
+        pcall(function()
+            local hl = Instance.new("Highlight")
+            hl.Name = "Delta_BordaHighlight"
+            hl.OutlineColor = cor
+            hl.OutlineTransparency = 0
+            hl.FillTransparency = 1
+            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            hl.Adornee = char
+            hl.Parent = char
+        end)
+    end
+end
 
-            if meuRoot then
-                local minhaPos = meuRoot.Position
+-- PARTE 1: Escaneia Jogadores Reais (Cor Branca)
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer and p.Character then
+        aplicarEfeitoESP(p.Character, p.Name, Color3.new(1, 1, 1))
+    end
+end
 
-                for _, p in ipairs(Players:GetPlayers()) do
-                    if p ~= LocalPlayer and p.Character then
-                        local seuRoot = p.Character:FindFirstChild("HumanoidRootPart")
-                        local head = p.Character:FindFirstChild("Head")
-
-                        if seuRoot and head then
-                            -- 1. CRIAÇÃO SEGURA DO NOME (Fora do personagem)
-                            local tagId = p.Name .. "_Tag"
-                            local tag = espFolder:FindFirstChild(tagId)
-
-                            if not tag then
-                                tag = Instance.new("BillboardGui")
-                                tag.Name = tagId
-                                tag.AlwaysOnTop = true
-                                tag.Size = UDim2.new(0, 100, 0, 30)
-                                tag.StudsOffset = Vector3.new(0, 3, 0)
-                                tag.Adornee = head -- Vincula o texto à cabeça do player remoto
-                                tag.Parent = espFolder
-
-                                local label = Instance.new("TextLabel", tag)
-                                label.BackgroundTransparency = 1
-                                label.Size = UDim2.new(1, 0, 1, 0)
-                                label.Text = p.Name
-                                label.TextColor3 = Color3.new(1, 1, 1)
-                                label.Font = Enum.Font.GothamBold
-                                label.TextSize = 13
-                                label.TextStrokeTransparency = 0
-                            end
-
-                            -- 2. CRIAÇÃO PROTEGIDA DA BORDA (Evita o fechamento do script no Delta)
-                            local hl = p.Character:FindFirstChild("Delta_BordaHighlight")
-                            if not hl then
-                                pcall(function()
-                                    hl = Instance.new("Highlight")
-                                    hl.Name = "Delta_BordaHighlight"
-                                    hl.OutlineColor = Color3.new(1, 1, 1)
-                                    hl.OutlineTransparency = 0
-                                    hl.FillTransparency = 1
-                                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                                    hl.Adornee = p.Character
-                                    hl.Parent = p.Character
-                                end)
-                            end
-
-                            -- 3. CÁLCULO REATIVO DE PROXIMIDADE
-                            if hl then
-                                local distancia = (minhaPos - seuRoot.Position).Magnitude
-                                if distancia <= DISTANCIA_ATIVACAO then
-                                    hl.Enabled = true
-                                else
-                                    hl.Enabled = false
-                                end
-                            end
-                        end
-                    end
-                end
-            end
+-- PARTE 2: Escaneia Monstros do Labirinto (Cor Vermelha)
+for _, obj in ipairs(Workspace:GetChildren()) do
+    if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj ~= LocalPlayer.Character then
+        local nomeMinusculo = string.lower(obj.Name)
+        if nomesMonstros[nomeMinusculo] then
+            aplicarEfeitoESP(obj, obj.Name:upper() .. " [MONSTRO]", Color3.new(1, 0, 0))
         end
-        limparESPTotal()
-    end)
+    end
 end
